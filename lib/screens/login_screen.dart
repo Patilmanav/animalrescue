@@ -26,6 +26,32 @@ class _LoginScreenState extends State<LoginScreen> {
   final DatabaseReference databaseRef = FirebaseDatabase.instance.ref();
 
   @override
+  void initState() {
+    super.initState();
+    // Check for saved login details if the user type is User or Volunteer
+    if (widget.userType != 'Admin') {
+      _loadLoginDetails();
+    }
+  }
+
+  Future<void> _loadLoginDetails() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    String? loginDetails = prefs.getString('login_details');
+
+    if (loginDetails != null) {
+      Map<String, dynamic> userData = jsonDecode(loginDetails);
+
+      // Check if the userType matches to avoid filling in wrong user data
+      if (userData['userType'] == widget.userType) {
+        setState(() {
+          emailOrUsernameController.text = userData['email'] ?? '';
+          passwordController.text = userData['password'] ?? '';
+        });
+      }
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
@@ -157,7 +183,9 @@ class _LoginScreenState extends State<LoginScreen> {
               'id': key,
               'email': value['email'],
               'name': value['name'], // assuming name exists in the data
-              'userType': widget.userType
+              'userType': widget.userType,
+              'password': value['password'],
+              'phone': value['phone']
             };
           }
         });

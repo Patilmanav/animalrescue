@@ -1,5 +1,8 @@
+import 'dart:convert';
+
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class SpottedAnimalsScreen extends StatefulWidget {
@@ -72,18 +75,42 @@ class _SpottedAnimalsScreenState extends State<SpottedAnimalsScreen> {
         margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
         child: Padding(
           padding: const EdgeInsets.all(16.0),
-          child: Column(
+          child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                report['animalDescription'] ?? 'No description available',
-                style:
-                    const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              // Display the image on the right side
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Display text information
+                    Text(
+                      report['animalDescription'] ?? 'No description available',
+                      style: const TextStyle(
+                          fontSize: 18, fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 8),
+                    Text('Area: ${report['area'] ?? 'Unknown'}'),
+                    const SizedBox(height: 4),
+                    Text(
+                        'Location: (${report['latitude']}, ${report['longitude']})'),
+                  ],
+                ),
               ),
-              const SizedBox(height: 8),
-              Text('Area: ${report['area'] ?? 'Unknown'}'),
-              const SizedBox(height: 4),
-              Text('Location: (${report['latitude']}, ${report['longitude']})'),
+              const SizedBox(width: 16), // Space between text and image
+              // Display the image
+              report['imageUrl'] != "No Image"
+                  ? Image.network(
+                      report['imageUrl'],
+                      height: 150, // Adjust height as needed
+                      width: 100, // Set width for the image
+                      fit: BoxFit.cover,
+                    )
+                  : const SizedBox(
+                      height: 150,
+                      width: 100, // Set width for the placeholder
+                      child: Placeholder(),
+                    ),
             ],
           ),
         ),
@@ -163,21 +190,42 @@ class _SpottedAnimalsScreenState extends State<SpottedAnimalsScreen> {
   // Function to mark an animal as captured
   void _markAsCaptured(Map<String, dynamic> report) async {
     try {
-      // Add the animal report to the 'adopted_animal' collection
-      await adoptAnimalRef.push().set(report);
+      // Load the volunteer details from SharedPreferences
+      SharedPreferences prefs = await SharedPreferences.getInstance();
+      String? loginDetails = prefs.getString('login_details');
 
-      // Remove the animal report from the 'animals_spotted' collection
-      await animalSpottedRef.child(report['id']).remove();
+      if (loginDetails != null) {
+        // Decode the login details to get volunteer info
+        Map<String, dynamic> volunteerDetails = jsonDecode(loginDetails);
 
-      // Remove the item from the local list (animalReports) and update the UI
-      setState(() {
-        animalReports.removeWhere((element) => element['id'] == report['id']);
-      });
+        // Add the volunteer's details to the report
+        report['volunteer'] = {
+          'name': volunteerDetails['name'] ?? 'Unknown Name',
+          'email': volunteerDetails['email'] ?? 'Unknown Email',
+          'phone': volunteerDetails['phone'] ?? 'Unknown Phone'
+        };
 
-      // Optionally, you can show a success message
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Animal marked as captured!')),
-      );
+        // Add the animal report to the 'adopt_animal' collection
+        await adoptAnimalRef.push().set(report);
+
+        // Remove the animal report from the 'animals_spotted' collection
+        await animalSpottedRef.child(report['id']).remove();
+
+        // Remove the item from the local list (animalReports) and update the UI
+        setState(() {
+          animalReports.removeWhere((element) => element['id'] == report['id']);
+        });
+
+        // Optionally, you can show a success message
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Animal marked as captured!')),
+        );
+      } else {
+        // Handle the case where there are no login details available
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Error: Volunteer details not found')),
+        );
+      }
     } catch (e) {
       // Handle any errors
       ScaffoldMessenger.of(context).showSnackBar(

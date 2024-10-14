@@ -26,7 +26,7 @@ class LoginChoiceScreen extends StatelessWidget {
               Padding(
                 padding: const EdgeInsets.only(bottom: 40),
                 child: Image.asset(
-                  'assets/logo.png', // Replace with your logo
+                  'assets/logo.jpg', // Replace with your logo
                   height: 120,
                 ),
               ),
