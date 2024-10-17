@@ -1,3 +1,4 @@
+import 'package:animalrescue/screens/adoptionform_screen.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/material.dart';
 
@@ -13,12 +14,19 @@ class _AdoptionAndFosterCareScreenState
     extends State<AdoptionAndFosterCareScreen> {
   final DatabaseReference adoptAnimalRef =
       FirebaseDatabase.instance.ref().child('adopt_animal');
+  final DatabaseReference adoptedAnimalRef =
+      FirebaseDatabase.instance.ref().child('adopted_animal');
+  final DatabaseReference rescueCenterRef =
+      FirebaseDatabase.instance.ref().child('rescue_center');
+
   List<Map<String, dynamic>> adoptableAnimals = [];
+  String rescueCenterAddress = 'Fetching address...';
 
   @override
   void initState() {
     super.initState();
     _fetchAdoptableAnimals();
+    _fetchRescueCenterAddress();
   }
 
   // Fetch the adoptable animals data from Firebase Realtime Database
@@ -30,14 +38,34 @@ class _AdoptionAndFosterCareScreenState
 
       if (data != null) {
         data.forEach((key, value) {
-          tempAnimals.add(Map<String, dynamic>.from(value));
+          // Filter out animals with status "PENDING" or "ADOPTED"
+          if (value['status'] != 'PENDING' && value['status'] != 'ADOPTED') {
+            tempAnimals.add(Map<String, dynamic>.from(value));
+          }
         });
       }
 
-      setState(() {
-        adoptableAnimals = tempAnimals;
-      });
+      // Only update the state if mounted to prevent the setState() after dispose error
+      if (mounted) {
+        setState(() {
+          adoptableAnimals = tempAnimals;
+        });
+      }
     });
+  }
+
+  // Fetch the rescue center address from Firebase Realtime Database
+  void _fetchRescueCenterAddress() async {
+    DataSnapshot snapshot = await rescueCenterRef.child('address').get();
+    if (snapshot.exists) {
+      setState(() {
+        rescueCenterAddress = snapshot.value.toString();
+      });
+    } else {
+      setState(() {
+        rescueCenterAddress = 'Address not available.';
+      });
+    }
   }
 
   @override
@@ -71,21 +99,22 @@ class _AdoptionAndFosterCareScreenState
         children: [
           Expanded(
             child: Image.network(
-              'https://via.placeholder.com/150', // Replace with actual image URL if available
+              animal['imageUrl'] ??
+                  'https://via.placeholder.com/150', // Replace with actual image URL
               fit: BoxFit.cover,
             ),
           ),
           Padding(
             padding: const EdgeInsets.all(8.0),
             child: Text(
-              animal['animalBreed'] ?? 'Unknown',
+              animal['animalType'] ?? 'Unknown',
               style: const TextStyle(fontWeight: FontWeight.bold),
             ),
           ),
-          Text(animal['animalDescription'] ?? 'No description available'),
+          Text(animal['animalBreed'] ?? 'No description available'),
           ElevatedButton(
             onPressed: () {
-              // Handle apply for adoption action
+              // Display the adoption form
               _applyForAdoption(animal);
             },
             child: const Text('Apply for Adoption'),
@@ -96,12 +125,11 @@ class _AdoptionAndFosterCareScreenState
   }
 
   void _applyForAdoption(Map<String, dynamic> animal) {
-    // Handle the adoption application process
-    // You can add navigation to a form or another screen here
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-          content: Text(
-              'Applied to adopt: ${animal['animalDescription'] ?? 'Animal'}')),
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => AdoptionFormScreen(animal: animal),
+      ),
     );
   }
 }

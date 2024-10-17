@@ -155,14 +155,29 @@ class _AnimalSpottingScreenState extends State<AnimalSpottingScreen> {
   // Submit form and save data in Firebase
   Future<void> _submitForm() async {
     if (_formKey.currentState!.validate()) {
+      // Check if location is set
+      if (_latitude == null || _longitude == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Please fetch the live location.')),
+        );
+        return;
+      }
+
+      // Check if an image is selected
+      if (_selectedImage == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+              content: Text('Please capture an image of the animal.')),
+        );
+        return;
+      }
+
       setState(() {
         isLoading = true;
       });
 
       // If image is selected, upload it
-      if (_selectedImage != null) {
-        await _uploadImage(_selectedImage!);
-      }
+      await _uploadImage(_selectedImage!);
 
       // Prepare the data for Firebase
       Map<String, String?> spottedAnimalData = {

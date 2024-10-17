@@ -1,3 +1,4 @@
+import 'package:animalrescue/screens/volunteer_adopted_animal_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:animalrescue/screens/adoption_screen.dart';
 import 'package:animalrescue/screens/animal_spotting_screen.dart';
@@ -33,7 +34,9 @@ class _HomeScreenState extends State<HomeScreen> {
       widget.userType == 'Volunteer'
           ? VolunteerNetworkScreen()
           : VeterinaryAssistanceScreen(),
-      AdoptionAndFosterCareScreen(),
+      widget.userType == 'Volunteer'
+          ? VolunteerAdoptedAnimalScreen()
+          : AdoptionAndFosterCareScreen(),
       UserProfileScreen(),
     ]);
   }

@@ -3,6 +3,7 @@ import 'approve_volunteers_screen.dart';
 import 'manage_authorities_screen.dart';
 import 'approved_volunteers_screen.dart';
 import 'rejected_volunteers_screen.dart';
+import 'update_rescue_center_screen.dart'; // Import the new screen
 
 class AdminDashboardScreen extends StatelessWidget {
   const AdminDashboardScreen({super.key});
@@ -28,6 +29,9 @@ class AdminDashboardScreen extends StatelessWidget {
               ApprovedVolunteersScreen()),
           _buildFeatureCard(context, 'View Rejected Volunteers',
               Icons.thumb_down, RejectedVolunteersScreen()),
+          // New Card for updating the rescue center address
+          _buildFeatureCard(context, 'Update Rescue Center Address',
+              Icons.location_on, UpdateRescueCenterScreen()),
         ],
       ),
     );

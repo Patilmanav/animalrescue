@@ -1,7 +1,10 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:firebase_database/firebase_database.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -18,6 +21,8 @@ class _SpottedAnimalsScreenState extends State<SpottedAnimalsScreen> {
   final DatabaseReference adoptAnimalRef =
       FirebaseDatabase.instance.ref().child('adopt_animal');
   List<Map<String, dynamic>> animalReports = [];
+
+  final ImagePicker _picker = ImagePicker();
 
   @override
   void initState() {
@@ -45,6 +50,41 @@ class _SpottedAnimalsScreenState extends State<SpottedAnimalsScreen> {
         animalReports = tempReports;
       });
     });
+  }
+
+  // Allow user to upload or edit the image
+  Future<void> _selectImage(String reportId) async {
+    final XFile? pickedFile =
+        await _picker.pickImage(source: ImageSource.gallery);
+
+    if (pickedFile != null) {
+      File imageFile = File(pickedFile.path);
+      await _uploadImage(reportId, imageFile);
+    }
+  }
+
+  // Upload the image to Firebase Storage and update the report
+  Future<void> _uploadImage(String reportId, File imageFile) async {
+    try {
+      // Upload to Firebase Storage
+      final storageRef =
+          FirebaseStorage.instance.ref().child('animal_images/$reportId');
+      await storageRef.putFile(imageFile);
+
+      // Get the download URL
+      final imageUrl = await storageRef.getDownloadURL();
+
+      // Update the image URL in the report in Firebase Database
+      await animalSpottedRef.child(reportId).update({'imageUrl': imageUrl});
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Image uploaded successfully!')),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error uploading image: $e')),
+      );
+    }
   }
 
   @override
@@ -124,42 +164,69 @@ class _SpottedAnimalsScreenState extends State<SpottedAnimalsScreen> {
       builder: (BuildContext context) {
         return AlertDialog(
           title: const Text('Animal Location'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start, // Align to the left
-            children: [
-              Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
-                    'Description: ${report['animalDescription'] ?? 'N/A'}'),
-              ),
-              const SizedBox(height: 8),
-              Align(
-                alignment: Alignment.centerLeft,
-                child: Text('Type: ${report['animalType'] ?? 'Unknown'}'),
-              ),
-              const SizedBox(height: 4),
-              Align(
-                alignment: Alignment.centerLeft,
-                child: Text('Breed: ${report['animalBreed'] ?? 'Unknown'}'),
-              ),
-              const SizedBox(height: 4),
-              Align(
-                alignment: Alignment.centerLeft,
-                child: Text('Color: ${report['animalColor'] ?? 'Unknown'}'),
-              ),
-              const SizedBox(height: 4),
-              Align(
-                alignment: Alignment.centerLeft,
-                child: Text('Area: ${report['area'] ?? 'N/A'}'),
-              ),
-              const SizedBox(height: 8),
-              Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
-                    'Coordinates: (${report['latitude'] ?? 'N/A'}, ${report['longitude'] ?? 'N/A'})'),
-              ),
-            ],
+          content: SingleChildScrollView(
+            // Add scrolling capability
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start, // Align to the left
+              children: [
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                      'Description: ${report['animalDescription'] ?? 'N/A'}'),
+                ),
+                const SizedBox(height: 8),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text('Type: ${report['animalType'] ?? 'Unknown'}'),
+                ),
+                const SizedBox(height: 4),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text('Breed: ${report['animalBreed'] ?? 'Unknown'}'),
+                ),
+                const SizedBox(height: 4),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text('Color: ${report['animalColor'] ?? 'Unknown'}'),
+                ),
+                const SizedBox(height: 4),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text('Area: ${report['area'] ?? 'N/A'}'),
+                ),
+                const SizedBox(height: 8),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                      'Coordinates: (${report['latitude'] ?? 'N/A'}, ${report['longitude'] ?? 'N/A'})'),
+                ),
+                const SizedBox(height: 16),
+                // Display the image with edit functionality
+                report['imageUrl'] != "No Image"
+                    ? Image.network(
+                        report['imageUrl'],
+                        height: 120, // Adjust height as needed
+                        width: MediaQuery.of(context).size.width *
+                            0.8, // Full width image
+                        fit: BoxFit.cover,
+                      )
+                    : const Placeholder(
+                        fallbackHeight: 150,
+                      ),
+                const SizedBox(height: 8),
+                Align(
+                  alignment: Alignment.center,
+                  child: ElevatedButton.icon(
+                    icon: const Icon(Icons.edit),
+                    label: const Text('Edit Image'),
+                    onPressed: () {
+                      _selectImage(report['id']); // Select new image
+                    },
+                  ),
+                ),
+              ],
+            ),
           ),
           actions: [
             TextButton(
@@ -216,36 +283,32 @@ class _SpottedAnimalsScreenState extends State<SpottedAnimalsScreen> {
           animalReports.removeWhere((element) => element['id'] == report['id']);
         });
 
-        // Optionally, you can show a success message
+        // Show a success message
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Animal marked as captured!')),
         );
       } else {
-        // Handle the case where there are no login details available
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Error: Volunteer details not found')),
+          const SnackBar(
+              content: Text('No volunteer details found. Please log in.')),
         );
       }
-    } catch (e) {
-      // Handle any errors
+    } catch (error) {
+      // Handle any errors that might occur during the process
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: $e')),
+        SnackBar(content: Text('Error marking animal as captured: $error')),
       );
     }
   }
 
-  void _launchMaps(String? latitude, String? longitude) async {
-    if (latitude == null || longitude == null) {
-      return;
-    }
-
-    final Uri googleMapUrl = Uri.parse(
-        'https://www.google.com/maps/search/?api=1&query=$latitude,$longitude');
-
-    if (await canLaunchUrl(googleMapUrl)) {
-      await launchUrl(googleMapUrl);
+  // Function to open Google Maps with the provided coordinates
+  Future<void> _launchMaps(double latitude, double longitude) async {
+    final url =
+        'https://www.google.com/maps/search/?api=1&query=$latitude,$longitude';
+    if (await canLaunch(url)) {
+      await launch(url);
     } else {
-      throw 'Could not launch $googleMapUrl';
+      throw 'Could not launch $url';
     }
   }
 }

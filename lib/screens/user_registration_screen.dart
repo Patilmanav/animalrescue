@@ -1,16 +1,24 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_database/firebase_database.dart';
 
-class UserRegistrationScreen extends StatelessWidget {
+class UserRegistrationScreen extends StatefulWidget {
+  const UserRegistrationScreen({Key? key}) : super(key: key);
+
+  @override
+  _UserRegistrationScreenState createState() => _UserRegistrationScreenState();
+}
+
+class _UserRegistrationScreenState extends State<UserRegistrationScreen> {
   final _formKey = GlobalKey<FormState>();
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
+  final TextEditingController _phoneController = TextEditingController();
 
   final DatabaseReference _database =
       FirebaseDatabase.instance.ref('users'); // Realtime DB reference
 
-  UserRegistrationScreen({super.key});
+  bool isLoading = false; // To show a loading state
 
   // Check if email already exists in the database
   Future<bool> _checkEmailExists(String email) async {
@@ -24,6 +32,9 @@ class UserRegistrationScreen extends StatelessWidget {
   Future<void> _registerUser(BuildContext context) async {
     if (_formKey.currentState!.validate()) {
       final email = _emailController.text.trim();
+      setState(() {
+        isLoading = true; // Set loading state to true
+      });
 
       // Check if the email already exists
       bool emailExists = await _checkEmailExists(email);
@@ -33,6 +44,9 @@ class UserRegistrationScreen extends StatelessWidget {
               content:
                   Text('Email already exists. Please use a different email.')),
         );
+        setState(() {
+          isLoading = false; // Reset loading state
+        });
         return; // Exit the function, don't proceed with registration
       }
 
@@ -42,6 +56,7 @@ class UserRegistrationScreen extends StatelessWidget {
         'email': email,
         'password': _passwordController.text
             .trim(), // You should hash passwords in real apps
+        'phone': _phoneController.text.trim(), // Include phone number
       };
 
       try {
@@ -60,6 +75,10 @@ class UserRegistrationScreen extends StatelessWidget {
           const SnackBar(
               content: Text('Registration failed! Please try again.')),
         );
+      } finally {
+        setState(() {
+          isLoading = false; // Reset loading state
+        });
       }
     }
   }
@@ -87,6 +106,7 @@ class UserRegistrationScreen extends StatelessWidget {
                   return null;
                 },
               ),
+              const SizedBox(height: 10),
               TextFormField(
                 controller: _emailController,
                 decoration: const InputDecoration(labelText: 'Email'),
@@ -99,6 +119,7 @@ class UserRegistrationScreen extends StatelessWidget {
                   return null;
                 },
               ),
+              const SizedBox(height: 10),
               TextFormField(
                 controller: _passwordController,
                 decoration: const InputDecoration(labelText: 'Password'),
@@ -110,12 +131,26 @@ class UserRegistrationScreen extends StatelessWidget {
                   return null;
                 },
               ),
+              const SizedBox(height: 10),
+              TextFormField(
+                controller: _phoneController,
+                decoration: const InputDecoration(labelText: 'Phone Number'),
+                keyboardType: TextInputType.phone,
+                validator: (value) {
+                  if (value == null || value.length != 10) {
+                    return 'Please enter your 10 digit phone number';
+                  }
+                  return null;
+                },
+              ),
               const SizedBox(height: 20),
               ElevatedButton(
-                onPressed: () {
-                  _registerUser(context);
-                },
-                child: const Text('Register'),
+                onPressed: isLoading ? null : () => _registerUser(context),
+                child: isLoading
+                    ? const CircularProgressIndicator(
+                        color: Colors.white,
+                      )
+                    : const Text('Register'),
               ),
             ],
           ),
